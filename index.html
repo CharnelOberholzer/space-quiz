@@ -444,6 +444,15 @@
       { question: "What is the name of NASA's most famous space telescope launched in 1990?", options: ["Kepler", "Chandra", "Hubble", "Webb"], answer: 2 }
     ];
 
+    function shuffle(items) {
+      const shuffled = [...items];
+      for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      return shuffled;
+    }
+
     const welcomeScreen = document.getElementById("welcome-screen");
     const quizScreen = document.getElementById("quiz-screen");
     const resultScreen = document.getElementById("result-screen");
@@ -457,6 +466,8 @@
     const feedback = document.getElementById("feedback");
     const nextButton = document.getElementById("next-button");
 
+    let missionQuestions = [];
+    let previousQuestionOrder = [];
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
@@ -468,14 +479,14 @@
     }
 
     function renderQuestion() {
-      const item = questions[currentQuestion];
+      const item = missionQuestions[currentQuestion];
       answered = false;
-      progressLabel.textContent = `Question ${currentQuestion + 1} of ${questions.length}`;
+      progressLabel.textContent = `Question ${currentQuestion + 1} of ${missionQuestions.length}`;
       scoreLabel.textContent = `★  Score: ${score}`;
       questionNumber.textContent = `Question ${String(currentQuestion + 1).padStart(2, "0")}`;
       questionText.textContent = item.question;
       progressTrack.setAttribute("aria-valuenow", String(currentQuestion));
-      progressFill.style.width = `${(currentQuestion / questions.length) * 100}%`;
+      progressFill.style.width = `${(currentQuestion / missionQuestions.length) * 100}%`;
       feedback.textContent = "";
       feedback.className = "feedback";
       nextButton.hidden = true;
@@ -494,11 +505,12 @@
     function selectAnswer(selected) {
       if (answered) return;
       answered = true;
-      const correct = selected === questions[currentQuestion].answer;
+      const item = missionQuestions[currentQuestion];
+      const correct = selected === item.answer;
       const buttons = [...answerList.querySelectorAll(".answer")];
       buttons.forEach((button, index) => {
         button.disabled = true;
-        if (index === questions[currentQuestion].answer) button.classList.add("correct");
+        if (index === item.answer) button.classList.add("correct");
         if (index === selected && !correct) button.classList.add("wrong");
       });
       if (correct) {
@@ -506,19 +518,19 @@
         feedback.textContent = "Brilliant! That's the right answer. ✨";
         feedback.classList.add("good");
       } else {
-        feedback.textContent = `Not quite — ${questions[currentQuestion].options[questions[currentQuestion].answer]} is correct.`;
+        feedback.textContent = `Not quite — ${item.options[item.answer]} is correct.`;
         feedback.classList.add("bad");
       }
       scoreLabel.textContent = `★  Score: ${score}`;
       progressTrack.setAttribute("aria-valuenow", String(currentQuestion + 1));
-      progressFill.style.width = `${((currentQuestion + 1) / questions.length) * 100}%`;
-      nextButton.textContent = currentQuestion === questions.length - 1 ? "See results  ✦" : "Next question  →";
+      progressFill.style.width = `${((currentQuestion + 1) / missionQuestions.length) * 100}%`;
+      nextButton.textContent = currentQuestion === missionQuestions.length - 1 ? "See results  ✦" : "Next question  →";
       nextButton.hidden = false;
       nextButton.focus();
     }
 
     function showResults() {
-      const percent = score / questions.length;
+      const percent = score / missionQuestions.length;
       const result = percent === 1
         ? ["🏆", "Perfect orbit!", "A flawless flight! You know your way around the cosmos."]
         : percent >= 0.8
@@ -531,22 +543,43 @@
       document.getElementById("celebration-confetti").hidden = !celebration;
       document.getElementById("result-emoji").textContent = result[0];
       document.getElementById("result-title").textContent = result[1];
-      document.getElementById("final-score").textContent = `${score} / ${questions.length} correct`;
+      document.getElementById("final-score").textContent = `${score} / ${missionQuestions.length} correct`;
       document.getElementById("result-message").textContent = result[2];
       showScreen(resultScreen);
       document.getElementById("result-title").focus();
     }
 
-    document.getElementById("start-button").addEventListener("click", () => {
+    function startMission() {
+      let questionOrder = shuffle(questions);
+      if (
+        previousQuestionOrder.length === questionOrder.length
+        && questionOrder.every((question, index) => question === previousQuestionOrder[index])
+      ) {
+        [questionOrder[0], questionOrder[1]] = [questionOrder[1], questionOrder[0]];
+      }
+      previousQuestionOrder = [...questionOrder];
+      missionQuestions = questionOrder.map((question) => {
+        const options = shuffle(question.options.map((text, index) => ({
+          text,
+          correct: index === question.answer
+        })));
+        return {
+          ...question,
+          options: options.map((option) => option.text),
+          answer: options.findIndex((option) => option.correct)
+        };
+      });
       currentQuestion = 0;
       score = 0;
       renderQuestion();
       showScreen(quizScreen);
       questionText.focus();
-    });
+    }
+
+    document.getElementById("start-button").addEventListener("click", startMission);
 
     nextButton.addEventListener("click", () => {
-      if (currentQuestion < questions.length - 1) {
+      if (currentQuestion < missionQuestions.length - 1) {
         currentQuestion += 1;
         renderQuestion();
         questionText.focus();
@@ -555,13 +588,7 @@
       }
     });
 
-    document.getElementById("restart-button").addEventListener("click", () => {
-      currentQuestion = 0;
-      score = 0;
-      renderQuestion();
-      showScreen(quizScreen);
-      questionText.focus();
-    });
+    document.getElementById("restart-button").addEventListener("click", startMission);
   </script>
 </body>
 </html>
